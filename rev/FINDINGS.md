@@ -41,6 +41,58 @@ Each entry:
 
 <!-- newest first -->
 
+### 2026-10-16: 06cb:00f9 (TUDOR, fw 10.1) verified end-to-end via pydrv; it is dual-protocol (BMKT + MiS); LED_EX2 needs Profile B (series 154), not Profile A
+
+- **Where**: `synaWudfBioUsb154.dll` (Lenovo T14 Gen 3 (AMD), driver from 2022) and
+  `synaWudfBioUsb136.dll` (Lenovo T14 Gen 3 (Intel), driver from 2026), sensor **06cb:00f9**
+- **Hardware**: Lenovo T14 Gen 3 (AMD, machine types 21CF/21CG) and P14s
+  (AMD, machine types 21J5/21J6, same platform, same FRP driver). The Intel T14 Gen 3 ships the v136 driver
+  instead. The sensor is the same "TUDOR" across variants.
+- **What**:
+  - **00F9 is dual-protocol.** It is in upstream `synaptics` (BMKT) id_table —
+    that is what libfprint/fprintd use today for PAM match — *and* it speaks the
+    full Tudor/MiS protocol (the one the Windows driver uses). MiS adds pairing,
+    a TLS 1.2 session, LED control and (presumably) pre-boot-capable enrollment.
+    Getting LED + pre-boot means moving 00F9 from `synaptics` to `synatlsmoc`.
+  - **MiS works end-to-end on 00F9 via pydrv** (no C driver needed): plaintext
+    `GET_VERSION` pre-pairing, `PAIR` (0x93), TLS 1.2 ECDHE (`0x44`, cipher
+    `0xc02e` = ECDHE-RSA-AES256-GCM), then all VCS commands.
+  - **GET_VERSION (plaintext, no pairing)**: fw 10.1, security u16 `0xa90f`
+    (advanced_security SET bit `0x0001`, **keyflag SET** bit `0x2000`),
+    interface `0x00`, provision_state 3, product 'A', serial `1c dd b2 f0 02 3b`,
+    build `0x6127415f`.
+  - **Sensor key**: fw 10.1 + keyflag-SET → pydrv `10.1-kf.tsk`, byte-identical
+    to the v154 DLL key table entry `(major=10, minor=1, flag=1)`. So `synatlsmoc`
+    (which accepts fw 10.1 with `pubkey_v10_1_kf`) should accept this sensor.
+  - **WbfParamIOTA payload is 24 bytes** on fw 10.1 (not the 16 bytes pydrv's
+    `WbfParamIOTA` accepted) → `Sensor.reset()` raised
+    `ValueError: Unsupported WBF parameter IOTA payload length: 24`. The 24-byte
+    payload is the 16-byte layout zero-extended (version at [3], param at [4]).
+  - **LED_EX2 (0x39) is per-sensor; 00F9 needs Profile B, not Profile A.** The
+    LED table is a sensor property (keyed by vid:pid), not a build/vendor one —
+    confirmed by the closed upstream PR #7 (Kensington 047d:8054), whose LED code
+    is gated by `(vid, pid)` and whose table is byte-identical to Profile A
+    (series 123). pydrv's default (Profile A, series 123) is accepted
+    (`VCS_RESULT_OK`) on 00F9 but leaves the LED dark; Profile B (series 154,
+    `synaWudfBioUsb154.dll` VA `0x1800e90c0`, 6 × 0x7c, same layout as Profile A)
+    lights it. Series 136 carries Profile B verbatim at file `0xf6050`. Sending
+    Profile B lights event 1 (solid green) and event 5 (orange blink), matching
+    Windows. Only the action values differ between profiles. See
+    `rev/notes/led-ex2-default-profiles.md` (Profile A/B + series note).
+- **Evidence**:
+  - Live runs on the T14 Gen 3 (AMD). A one-shot `pydrv/led_mvp.py` proved the
+    flow; it is now superseded by the proper `pydrv` `led` REPL command
+    (`pydrv/tudor/driver/drvcmd/led.py`) plus per-device LED profiles in
+    `pydrv/tudor/sensor/led.py` (`LED_PROFILES_BY_DEVICE`).
+  - `GET_VERSION` and `WbfParamIOTA` captured plaintext pre-pairing.
+  - `pair` + TLS from the `led` run (0x93 OK, 0x44 ECDHE, 0x39 all OK).
+  - v154 LED table extracted from the DLL; frames built with the v123
+    `sendLedEx2Cmd` permutation; **green + orange blink observed by the user**.
+  - v154 (10,1,flag=1) sensor key cross-checked against pydrv `10.1-kf.tsk`.
+  - v136 table at file `0xf6050` byte-compared equal to the v154 table.
+- **Status**: `verified` (LED behavior and MiS flow confirmed)
+- **Ghidra changes**: none.
+
 ### 2026-10-16: 0xA6 is VCSFW_CMD_MSBM_CONNECT; TIDLE_SET is never sent on USB; host-only VCS_RESULT_SENSOR_* codes
 
 - **Where**: `synaWudfBioUsb111.dll`, `synaWudfBioUsb123.dll`, `synaWudfBioUsb136.dll`

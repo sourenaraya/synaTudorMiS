@@ -92,9 +92,10 @@ if __name__ == "__main__":
         comm = LogCommunicationProxy(comm)
 
     has_leds = args.comm == "usb" and (args.vid, args.pid) in LED_EX2_DEVICES
+    led_profiles = LED_PROFILES_BY_DEVICE.get((args.vid, args.pid))
 
     # Open the sensor
-    with Sensor(comm, has_leds) as sensor:
+    with Sensor(comm, has_leds, led_profiles=led_profiles) as sensor:
         # Main command loop
         cmd_ctx = drvcmd.CmdContext(sensor)
 

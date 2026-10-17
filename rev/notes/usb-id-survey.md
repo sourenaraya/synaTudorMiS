@@ -105,7 +105,8 @@ unless they start with `HPD/`.
 | 0103, 0104, 0106 | Synaptics FS7606 … | 110 | no | yes | no | unlikely (BMKT upstream) | as above, `synaptics.c:43-45` |
 | 0107, 0108 | Synaptics FS7606 … | 110: 6.0.205 | no | yes (`09ec6e6`) | no | unlikely | `downloads/msucat-6.0.205.1110/x/synaWudfBioUsbUwp.inf` |
 | 00BD, 00C2, 0123 | Synaptics UWP WBDI | 105: 6.0.73 | no | yes | no | unlikely | `downloads/msucat-6.0.73.1105/x/synaWudfBioUsbUwp.inf` |
-| 00F9, 00FC | Synaptics UWP WBDI | 154: 6.0.5; 136: 6.0.69 | no | yes | no | unlikely | `downloads/msucat-6.0.69.1136/x/synaWudfBioUsbUwp.inf` |
+| 00F9 | Synaptics UWP WBDI | 154: 6.0.5; 136: 6.0.69 | **add** (fw 10.1, keyflag-SET key present) | yes | no | **yes — 00F9 verified live 2026-10-16** | **dual-protocol**: in BMKT `syn` today *and* Tudor MiS; Windows uses MiS (`154`/`136`), which gives LED + pairing. Moving it to `synatlsmoc` supersedes the BMKT entry. See FINDINGS 2026-10-16 | `downloads/msucat-6.0.69.1136/x/synaWudfBioUsbUwp.inf` |
+| 00FC | Synaptics UWP WBDI | 154: 6.0.5; 136: 6.0.69 | no | yes | no | unlikely (untested; sibling of 00F9) | `downloads/msucat-6.0.69.1136/x/synaWudfBioUsbUwp.inf` |
 | 0126, 0129 | Synaptics UWP WBDI | 136: 6.0.69 | no | yes | no | unlikely | as above |
 | 0173 | Synaptics UWP WBDI | 164: 6.1.13 | no | yes | no | unlikely | `downloads/msucat-6.1.13.1164/x/synaWudfBioUsbUwp.inf` |
 | 019D | Synaptics UWP WBDI | 167: 6.0.19 | no | yes | no | unlikely | `downloads/msucat-6.0.19.1167/x/synaWudfBioUsbUwp.inf` |

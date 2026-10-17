@@ -120,18 +120,21 @@ class WbfParamIOTA(PackedIOTA):
     def __init__(self, iota_id: int, data: bytes):
         super().__init__(iota_id, data)
 
-        # Firmware used by Kensington 047d:8054 returns a compact 8-byte
-        # variant, while the originally supported devices use 16 bytes.
+        # Three on-wire variants of this IOTA payload:
+        #   8 bytes  - compact (Kensington 047d:8054, fw 10.1.3031663):
+        #              ver byte at [0], u32 param at [4].
+        #   16 bytes - the original layout: version at [3], param byte at [4].
+        #   24 bytes - newer firmware (e.g. 06cb:00f9, series 154/136): the
+        #              same leading 16-byte layout, padded.
+        # (The 16/24 variants share the leading fields, so read the same two.)
         if len(self.payload) == 8:
             ver, self.param = struct.unpack("<BxxxI", self.payload)
-        elif len(self.payload) == 16:
-            ver, self.param = struct.unpack("<xxxBIxxxxxxxx", self.payload)
         else:
+            ver, self.param = self.payload[3], self.payload[4]
+        if ver != 1:
             raise ValueError(
-                "Unsupported WBF parameter IOTA payload length: %d"
-                % len(self.payload)
+                "Unsupported WBF parameter IOTA version: %d" % ver
             )
-        assert ver == 1
 
     @staticmethod
     def read_from_comm(comm):

@@ -97,3 +97,63 @@ sample (also sent when enrollment completes) and event 3 a rejected one
 `LED_EX2` command once after this result; it is a firmware rejection of the
 command, not an LED profile selector.
 
+## The profiles are per-sensor (vid:pid), not per driver build
+
+"Series" = Synaptics' UMDF driver build number = the 4th `DriverVer` component
+(6.0.X.NNNN) with the leading "1" dropped (6.0.2.1154 -> 154). It is **not** a
+monotonic generation (series 154, 2022, predates 136, 2023). The table a sensor
+needs is a property of the **sensor**, not of the build that ships it: a build
+ships one table per supported sensor, and a sensor keeps the same table across
+the builds that ship it.
+
+- **Profile A** — series 123 (`synaWudfBioUsb123.dll`, 6.0.20.1123) @
+  `0x1800cc8a0`. Used by **047d:8054 (Kensington)** and **06cb:00d6
+  (Synaptics)**. The 8054 table is byte-identical in the closed upstream PR #7
+  (Kensington VeriMark IT), whose LED code is gated by `(vid, pid)` — i.e.
+  per-sensor — independently confirming this keying.
+- **Profile B** — series 154 (`synaWudfBioUsb154.dll`, 6.0.2.1154, T14 Gen 3
+  AMD, SHA-256 `cfae86fd…9c7b9`) @ `0x1800e90c0`; byte-identical in series 136
+  (`synaWudfBioUsb136.dll`, 6.0.42.1136, T14 Gen 3 Intel) @ file `0xf6050`.
+  Used by **06cb:00f9** (fw 10.1; T14 Gen 3 / P14s, AMD+Intel).
+
+Both profiles share the 0x7d-byte command and byte layout — loaded by the same
+`vfmUtilLedInitialize` (`memcpy(session + 0xf8, <table>, 0x2e8)`) and serialized
+by the same `sendLedEx2Cmd` permutation. **Only the action values differ**, and
+that is the whole difference for LED behavior. pydrv's default (Profile A) is
+accepted (`VCS_RESULT_OK`) on a Profile-B sensor but leaves the LED dark; sending
+Profile B makes it light.
+
+### Profile B values (06cb:00f9, series 154)
+
+Decoded little-endian, `params` at source-action offsets `+0x04`, `+0x08`, `+0x0c`
+(same convention as the Profile A table above). Live-verified on 06cb:00f9
+(fw 10.1, keyflag set): event 1 = solid green, event 5 = orange blink.
+
+| event index | duration | nonzero actions (`field0`; params) | observed use |
+|---:|---:|---|---|
+| 0 | 0 ms | all six: `0x0000; 0x20000000,0,0` | idle/off |
+| 1 | 0 ms | action 0: `0xffff; 0x20009607,0x00009696,0` | waiting-for-finger (green on; duration 0 = stay on until changed) |
+| 2 | 500 ms | action 0: `0x01f4; 0x20000007,0,0` | enrollment accepted / match success |
+| 3 | 1000 ms | action 0: `0x00a6; 0x20003c01,0,0x00003c3c`; action 1: `0x00a6; 0x20000001,0,0` | enrollment rejected / match failure (orange blink) |
+| 4 | 500 ms | identical to event 2 | match success |
+| 5 | 1000 ms | identical to event 3 | match failure |
+
+### Profile A vs B (the fields that differ)
+
+| event | field | A (series 123) | B (series 154) |
+|---|---|---|---|
+| 1 | duration | 160000 | 0 |
+| 1 | act0 param0 | 0x20000505 | 0x20009607 |
+| 1 | act0 param2 | 0x00000505 | 0x00009696 |
+| 5 | act0 field0 | 0x004b | 0x00a6 |
+| 5 | act0 param0 | 0x20000107 | 0x20003c01 |
+
+### Series 136 carries a table bank
+
+The series-136 driver no longer ships a single hard-coded table; it carries a
+**bank** of 6×0x7c tables (one per supported sensor), selected at runtime. The
+entry at file offset `0xf6050` is **byte-identical to Profile B above**,
+confirming the profile is stable across the builds that ship that sensor. Other
+bank entries carry Profile-A-style values (e.g. file `0xf7560`, duration 160000,
+match-fail field0 `0x004b`) for other sensors.
+

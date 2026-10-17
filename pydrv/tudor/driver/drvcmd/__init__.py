@@ -9,6 +9,7 @@ from .update import *
 from .pair import *
 from .init import *
 from .event import *
+from .led import *
 from .storage import *
 from .bmkt import *
 from .test import *

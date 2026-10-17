@@ -123,9 +123,14 @@ class SensorProvisionState(enum.IntEnum):
 class Sensor:
     IDLE_TIMEOUT = 200
 
-    def __init__(self, comm: tudor.CommunicationInterface, has_leds: bool = False):
+    def __init__(
+        self,
+        comm: tudor.CommunicationInterface,
+        has_leds: bool = False,
+        led_profiles: dict = None,
+    ):
         self.comm = comm
-        self.led = SensorLed(comm, has_leds)
+        self.led = SensorLed(comm, has_leds, led_profiles)
         self.bootloader = tudor.sensor.SensorBootloader(self)
         self.tls_session = None
         self.event_handler = None
