@@ -79,6 +79,19 @@ Each entry:
     Profile B lights event 1 (solid green) and event 5 (orange blink), matching
     Windows. Only the action values differ between profiles. See
     `rev/notes/led-ex2-default-profiles.md` (Profile A/B + series note).
+   - **Pre-boot (UEFI) reads a different template world (OPEN).** A
+     Windows-enrolled template unlocks the NVMe in UEFI but is invisible to
+     Linux (`verify` says "no fingers added"; only the global "duplicate finger"
+     check spans worlds). After a storage reset, Linux enrolls + verifies, but
+     UEFI match on the Linux-enrolled template fails. The "host-cert
+     `cert_type`" hypothesis was **refuted live**: the type-2 host cert in the
+     Windows capture is the sensor's pairing *echo* (the host sends type 0);
+     sending type 2 makes the sensor reject the pair with
+     `VCS_RESULT_GEN_OBJECT_DOESNT_EXIST_1` (0x403) — reverted in libfprint
+     (commit c610046). Working model: worlds are scoped by the host identity
+     keypair (fresh per host; shared vendor HS CA); the UEFI NVMe binding
+     follows the host active at setup time. See
+     `rev/notes/tudor-template-world-certtype.md`.
 - **Evidence**:
   - Live runs on the T14 Gen 3 (AMD). A one-shot `pydrv/led_mvp.py` proved the
     flow; it is now superseded by the proper `pydrv` `led` REPL command
@@ -90,7 +103,11 @@ Each entry:
     `sendLedEx2Cmd` permutation; **green + orange blink observed by the user**.
   - v154 (10,1,flag=1) sensor key cross-checked against pydrv `10.1-kf.tsk`.
   - v136 table at file `0xf6050` byte-compared equal to the v154 table.
-- **Status**: `verified` (LED behavior and MiS flow confirmed)
+  - Host-cert `cert_type`: the type-2 host cert in the Windows capture is the
+    sensor's pairing *echo* (host sends type 0); sending type 2 is rejected
+    (0x403) — cert_type is NOT the template-world selector.
+- **Status**: `verified` (LED behavior and MiS flow confirmed); pre-boot
+  template-world interop is **OPEN** (see the note above)
 - **Ghidra changes**: none.
 
 ### 2026-10-16: 0xA6 is VCSFW_CMD_MSBM_CONNECT; TIDLE_SET is never sent on USB; host-only VCS_RESULT_SENSOR_* codes

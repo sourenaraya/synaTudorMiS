@@ -31,7 +31,10 @@ class SensorCertificate:
     def create_host_cert(pub_key: ecc.EllipticCurvePublicKey):
         assert isinstance(pub_key.curve, ecc.SECP256R1)
 
-        # Generate certificate with bogus signature
+        # cert_type 0 = the host's own cert (what the host sends). The type-2
+        # "host cert" in a pairing capture is the SENSOR's echo of it (the
+        # sensor stamps 2); sending 2 ourselves makes the sensor reject the
+        # pair (VCS_RESULT_GEN_OBJECT_DOESNT_EXIST_1, 0x403).
         cert = SensorCertificate(0, pub_key, bytes())
 
         # Manually generate signature field using HS key
